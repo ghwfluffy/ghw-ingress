@@ -9,6 +9,7 @@ import sys
 import time
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 import yaml
 
@@ -65,6 +66,14 @@ def require_string(value: Any, label: str) -> str:
     return value.strip()
 
 
+def normalize_target_url(value: str, label: str) -> str:
+    parsed = urlsplit(require_string(value, label))
+    if not parsed.scheme or not parsed.netloc:
+        raise ConfigError(f"{label} must be an absolute URL like http://service:8080")
+    path = parsed.path or "/"
+    return urlunsplit((parsed.scheme, parsed.netloc, path, parsed.query, parsed.fragment))
+
+
 def require_int(value: Any, label: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         raise ConfigError(f"{label} must be an integer")
@@ -102,13 +111,13 @@ def normalize_route(route: Any, index: int) -> dict[str, Any]:
         )
 
     if has_target:
-        targets = [require_string(route.get("target"), f"routes[{index}].target")]
+        targets = [normalize_target_url(route.get("target"), f"routes[{index}].target")]
     else:
         raw_targets = route.get("targets")
         if not isinstance(raw_targets, list) or not raw_targets:
             raise ConfigError(f"routes[{index}].targets must be a non-empty list")
         targets = [
-            require_string(value, f"routes[{index}].targets[{target_index}]")
+            normalize_target_url(value, f"routes[{index}].targets[{target_index}]")
             for target_index, value in enumerate(raw_targets)
         ]
 
