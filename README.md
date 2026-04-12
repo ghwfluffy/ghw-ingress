@@ -6,6 +6,7 @@ This repository is a Docker Compose ingress built around Traefik. It terminates 
 
 - Provisions and renews Let's Encrypt certificates automatically.
 - Routes multiple hosts and path prefixes to different backend services.
+- Supports a host-level fallback route for requests that do not match any explicit path prefix.
 - Watches the mounted YAML config and applies changes automatically.
 - Persists ACME state across restarts.
 
@@ -35,6 +36,10 @@ Use backend URLs in `config/ingress.yml`:
 - Services on the shared Docker network: `http://service-name:8080`
 
 The Compose project creates a network named `ingress_proxy`. Other Docker Compose projects can join that network and be addressed by container name.
+
+## Fallback Routing
+
+Set `primary: true` on a route to make it the fallback backend for a host. That route will catch requests for the host that do not match any more specific `path_prefix` route on the same host.
 
 ## Config Reload Behavior
 

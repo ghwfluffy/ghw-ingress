@@ -89,6 +89,11 @@ def normalize_route(route: Any, index: int) -> dict[str, Any]:
     if not path_prefix.startswith("/"):
         raise ConfigError(f"routes[{index}].path_prefix must start with '/'")
 
+    if "primary" in route:
+        is_primary_route = require_bool(route["primary"], f"routes[{index}].primary")
+    else:
+        is_primary_route = False
+
     has_target = "target" in route
     has_targets = "targets" in route
     if has_target == has_targets:
@@ -123,10 +128,19 @@ def normalize_route(route: Any, index: int) -> dict[str, Any]:
         "name": name,
         "host": host,
         "path_prefix": path_prefix,
+        "primary": is_primary_route,
         "targets": targets,
         "strip_prefix": strip_prefix,
         "pass_host_header": pass_host_header,
     }
+
+    if is_primary_route:
+        if path_prefix != "/":
+            raise ConfigError(
+                f"routes[{index}].path_prefix must be '/' or omitted when routes[{index}].primary is true"
+            )
+        if strip_prefix:
+            raise ConfigError(f"routes[{index}].strip_prefix cannot be true when routes[{index}].primary is true")
 
     if "priority" in route:
         normalized["priority"] = require_int(
@@ -188,6 +202,25 @@ def normalize_config(raw: dict[str, Any]) -> dict[str, Any]:
     route_names = [route["name"] for route in normalized_routes]
     if len(route_names) != len(set(route_names)):
         raise ConfigError("route names must be unique")
+
+    host_route_map: dict[str, list[dict[str, Any]]] = {}
+    for route in normalized_routes:
+        host_route_map.setdefault(route["host"], []).append(route)
+
+    for host, host_routes in host_route_map.items():
+        primary_routes = [route for route in host_routes if route["primary"]]
+        if len(primary_routes) > 1:
+            raise ConfigError(f"host '{host}' has more than one primary route")
+
+        if primary_routes:
+            root_routes = [
+                route for route in host_routes if not route["primary"] and route["path_prefix"] == "/"
+            ]
+            if root_routes:
+                conflicting_names = ", ".join(route["name"] for route in root_routes)
+                raise ConfigError(
+                    f"host '{host}' cannot mix primary routes with '/' path_prefix routes: {conflicting_names}"
+                )
 
     normalized["routes"] = normalized_routes
     return normalized
@@ -288,9 +321,13 @@ def build_dynamic_config(config: dict[str, Any]) -> dict[str, Any]:
     middlewares: dict[str, Any] = {}
 
     for route in config["routes"]:
-        rule = build_rule(route["host"], route["path_prefix"])
+        rule = (
+            f"Host(`{route['host']}`)"
+            if route["primary"]
+            else build_rule(route["host"], route["path_prefix"])
+        )
         middleware_names: list[str] = []
-        priority = route.get("priority")
+        priority = route.get("priority", 1 if route["primary"] else None)
 
         if route["strip_prefix"] and route["path_prefix"] != "/":
             middleware_name = f"{route['name']}-strip-prefix"

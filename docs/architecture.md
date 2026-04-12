@@ -25,7 +25,8 @@ Traefik was chosen over NGINX because ACME issuance and renewal are built into t
 1. Requests enter Traefik on ports `80` and `443`.
 2. HTTP requests are redirected to HTTPS when `ingress.redirect_to_https` is enabled.
 3. HTTPS routers are generated from `routes`.
-4. Each route forwards to one or more upstream URLs defined in the same YAML file.
+4. Path-specific routes win first; optional `primary: true` routes act as host-level fallbacks.
+5. Each route forwards to one or more upstream URLs defined in the same YAML file.
 
 ## ACME Lifecycle
 

@@ -32,6 +32,7 @@ Supported keys per route:
 - `name`: required unique identifier.
 - `host`: required hostname matched by the route.
 - `path_prefix`: optional path prefix. Use `/` for the entire host.
+- `primary`: when `true`, this route becomes the fallback for unmatched traffic on its host.
 - `target`: a single upstream URL.
 - `targets`: multiple upstream URLs for simple load balancing.
 - `strip_prefix`: removes `path_prefix` before forwarding when `true`.
@@ -39,6 +40,13 @@ Supported keys per route:
 - `priority`: optional Traefik router priority.
 
 Each route must define exactly one of `target` or `targets`.
+
+Fallback route rules:
+
+- At most one `primary: true` route is allowed per host.
+- A `primary: true` route matches the host without any path constraint.
+- If a host has a `primary: true` route, that same host cannot also define a non-fallback `path_prefix: /` route.
+- `strip_prefix` cannot be used on a `primary: true` route.
 
 ## Example
 
@@ -58,9 +66,15 @@ ingress:
     host: traefik.example.com
 
 routes:
+  - name: site
+    host: www.example.com
+    primary: true
+    target: http://host.docker.internal:3000
+
   - name: api
-    host: api.example.com
-    path_prefix: /
+    host: www.example.com
+    path_prefix: /api
+    strip_prefix: true
     target: http://host.docker.internal:8080
 
   - name: ui
