@@ -1,0 +1,9 @@
+outfile.tmp
+data/traefik/acme.json
+generated/dynamic/*
+generated/static/*
+generated/status/*
+!generated/dynamic/.gitkeep
+!generated/static/.gitkeep
+!generated/status/.gitkeep
+__pycache__/

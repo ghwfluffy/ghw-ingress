@@ -1,0 +1,27 @@
+version: 1
+
+ingress:
+  log_level: INFO
+  access_log: true
+  redirect_to_https: true
+
+  acme:
+    email: ops@example.com
+    staging: true
+    storage_file: /var/lib/traefik/acme.json
+
+  dashboard:
+    enabled: false
+    host: traefik.example.com
+
+routes:
+  - name: project1
+    host: www.example.com
+    path_prefix: /project1
+    strip_prefix: true
+    target: http://host.docker.internal:1234
+
+  - name: app
+    host: app.example.com
+    path_prefix: /
+    target: http://host.docker.internal:3000

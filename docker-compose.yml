@@ -1,0 +1,40 @@
+services:
+  config-renderer:
+    build:
+      context: .
+      dockerfile: renderer/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./config/ingress.yml:/config/ingress.yml:ro
+      - ./generated:/generated
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /generated/status/healthy"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  ingress:
+    build:
+      context: .
+      dockerfile: ingress/Dockerfile
+    depends_on:
+      config-renderer:
+        condition: service_healthy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./config/ingress.yml:/etc/ingress/config.yml:ro
+      - ./generated/static:/etc/traefik/generated/static:ro
+      - ./generated/dynamic:/etc/traefik/dynamic:ro
+      - ./data/traefik:/var/lib/traefik
+    networks:
+      - ingress_proxy
+
+networks:
+  ingress_proxy:
+    name: ingress_proxy
