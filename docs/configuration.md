@@ -39,6 +39,24 @@ Supported keys per route:
 - `pass_host_header`: forwards the original `Host` header when `true`. Defaults to `true`.
 - `priority`: optional Traefik router priority.
 
+### `tcp_routes`
+
+Optional list of dedicated TLS passthrough listeners. Each entry requires
+`name`, `port`, `server_name` (an exact DNS hostname), and `target`
+(`hostname:port`). Names must be unique across HTTP and TCP routes; ports must
+be unique and cannot use 80 or 443. Publish the matching listener port in the
+deployment compose file. Traefik uses `HostSNI` and passes the complete TLS
+handshake to the backend, so the backend owns client-certificate verification.
+These listeners never use the HTTP certificate resolver or HTTP middleware.
+
+```yaml
+tcp_routes:
+  - name: devices
+    port: 9443
+    server_name: example.com
+    target: device-api:9443
+```
+
 Each route must define exactly one of `target` or `targets`.
 
 Fallback route rules:

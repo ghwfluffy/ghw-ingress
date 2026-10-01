@@ -232,6 +232,30 @@ def normalize_config(raw: dict[str, Any]) -> dict[str, Any]:
                 )
 
     normalized["routes"] = normalized_routes
+    tcp_routes = raw.get("tcp_routes", [])
+    if not isinstance(tcp_routes, list):
+        raise ConfigError("tcp_routes must be a list")
+    normalized_tcp = []
+    used_ports = {80, 443}
+    used_names = set(route_names)
+    for index, item in enumerate(tcp_routes):
+        route = require_mapping(item, f"tcp_routes[{index}]")
+        name = require_string(route.get("name"), f"tcp_routes[{index}].name").lower()
+        port = require_int(route.get("port"), f"tcp_routes[{index}].port")
+        server_name = require_string(route.get("server_name"), f"tcp_routes[{index}].server_name")
+        target = require_string(route.get("target"), f"tcp_routes[{index}].target")
+        if not NAME_PATTERN.fullmatch(name) or name in used_names:
+            raise ConfigError("TCP route names must be valid and unique across all routes")
+        if not 1 <= port <= 65535 or port in used_ports:
+            raise ConfigError("TCP route ports must be unique and cannot reuse 80 or 443")
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.-]*[A-Za-z0-9]", server_name):
+            raise ConfigError("TCP server_name must be an exact DNS hostname")
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.-]*:[0-9]{1,5}", target) or not 1 <= int(target.rsplit(':', 1)[1]) <= 65535:
+            raise ConfigError("TCP target must be hostname:port")
+        used_ports.add(port)
+        used_names.add(name)
+        normalized_tcp.append({"name": name, "port": port, "server_name": server_name, "target": target})
+    normalized["tcp_routes"] = normalized_tcp
     return normalized
 
 
@@ -300,6 +324,8 @@ def build_static_config(config: dict[str, Any]) -> dict[str, Any]:
     if ingress["acme"]["staging"]:
         static["certificatesResolvers"]["letsencrypt"]["acme"]["caServer"] = LETS_ENCRYPT_STAGING
 
+    for route in config.get("tcp_routes", []):
+        static["entryPoints"]["tcp-" + route["name"]] = {"address": f":{route['port']}"}
     return static
 
 
@@ -406,6 +432,17 @@ def build_dynamic_config(config: dict[str, Any]) -> dict[str, Any]:
     }
     if middlewares:
         dynamic["http"]["middlewares"] = middlewares
+    if config.get("tcp_routes"):
+        dynamic["tcp"] = {"routers": {}, "services": {}}
+        for route in config["tcp_routes"]:
+            name = "tcp-" + route["name"]
+            dynamic["tcp"]["routers"][name] = {
+                "rule": f"HostSNI(`{route['server_name']}`)",
+                "entryPoints": [name], "service": name, "tls": {"passthrough": True},
+            }
+            dynamic["tcp"]["services"][name] = {
+                "loadBalancer": {"servers": [{"address": route["target"]}]},
+            }
     return dynamic
 
 

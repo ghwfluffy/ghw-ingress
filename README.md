@@ -6,6 +6,7 @@ This repository is a Docker Compose ingress built around Traefik. It terminates 
 
 - Provisions and renews Let's Encrypt certificates automatically.
 - Routes multiple hosts and path prefixes to different backend services.
+- Supports optional dedicated TCP/TLS passthrough listeners for backend-owned mutual TLS.
 - Supports a host-level fallback route for requests that do not match any explicit path prefix.
 - Watches the mounted YAML config and applies changes automatically.
 - Persists ACME state across restarts.

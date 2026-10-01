@@ -28,6 +28,13 @@ Traefik was chosen over NGINX because ACME issuance and renewal are built into t
 4. Path-specific routes win first; optional `primary: true` routes act as host-level fallbacks.
 5. Each route forwards to one or more upstream URLs defined in the same YAML file.
 
+Optional `tcp_routes` create dedicated TCP entrypoints and exact-SNI TLS
+passthrough routers. The backend receives the original TLS handshake and owns
+mutual TLS authentication. Listener changes update static configuration and
+therefore restart Traefik through the existing wrapper. HTTP routing remains
+unchanged. Validate this contract with `python -m unittest discover -s renderer
+-p 'test_*.py'` (PyYAML must be installed).
+
 ## ACME Lifecycle
 
 - Certificates are stored in `data/traefik/acme.json`.
